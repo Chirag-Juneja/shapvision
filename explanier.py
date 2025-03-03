@@ -11,6 +11,7 @@ def load_imagenet_labels():
     with open("./assets/imagenet_classes.txt") as f:
         return [line.strip() for line in f.readlines()]
 
+
 def predict(x):
     if isinstance(x, np.ndarray):
         x = nhwc_to_nchw(torch.Tensor(x)).to(device)
