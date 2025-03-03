@@ -10,9 +10,6 @@ from utils import *
 def load_imagenet_labels():
     with open("./assets/imagenet_classes.txt") as f:
         return [line.strip() for line in f.readlines()]
-    default_class_names = load_imagenet_labels()
-    return default_class_names
-
 
 def predict(x):
     if isinstance(x, np.ndarray):
