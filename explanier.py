@@ -1,26 +1,10 @@
 import torch
 import torchvision
-from torchvision import transforms
 import argparse
 import shap
 from PIL import Image
 import numpy as np
-
-
-def preprocess_image(img, custom_transforms=None):
-    if custom_transforms:
-        transform = custom_transforms
-    else:
-        transform = transforms.Compose(
-            [
-                transforms.Resize((128, 128)),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
-    return transform(img).unsqueeze(0)
+from utils import *
 
 
 def load_imagenet_labels():
@@ -67,8 +51,8 @@ def get_explainer(model, class_names, input_shape=(3, 256, 256)):
 def generate_shap_values(explainer, img_tensor):
     # Generate SHAP values for the top predicted class
     topk=5
-    batch_size=1024
-    n_evals=100000
+    batch_size=512
+    n_evals=10000
 
     shap_values = explainer(
         img_tensor,
@@ -104,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=str, help="image path")
     args = parser.parse_args()
 
-    device = "cuda"
+    device = "mps"
     class_names = load_imagenet_labels()
 
     image = Image.open(args.path).convert("RGB")
