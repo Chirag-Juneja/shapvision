@@ -37,22 +37,25 @@ def load_pretrained_model(model_name="ResNet18"):
     return model
 
 
-def get_explainer(model, class_names, input_shape=(128, 128, 3)):
+def generate_shap_values(image, input_shape):
+
+    x = preprocess(image, input_shape[:2])
+
     masker = shap.maskers.Image("blur(64,64)", input_shape)
-    return shap.Explainer(
+
+    explainer = shap.Explainer(
         predict,
         masker,
         output_names=class_names,
     )
 
-
-def generate_shap_values(explainer, x):
     shap_values = explainer(
-        x,
+        nchw_to_nhwc(x),
         max_evals=n_evals,
         batch_size=batch_size,
         outputs=shap.Explanation.argsort.flip[:topk],
     )
+
     shap_values.data = postprocess(shap_values.data).cpu().numpy()
     shap_values.values = [val for val in np.moveaxis(shap_values.values, -1, 0)]
     return shap_values
@@ -88,13 +91,10 @@ if __name__ == "__main__":
     image = Image.open(args.path).convert("RGB")
 
     model = load_pretrained_model().to(device)
+    x = preprocess(image, input_shape[:2])
+    class_idx, _ = predict(x)
 
-    x = preprocess(image)
-
-    class_idx, probabilities = predict(x)
-
-    explainer = get_explainer(model, class_names, input_shape)
-    shap_values = generate_shap_values(explainer, nchw_to_nhwc(x))
+    shap_values = generate_shap_values(image, input_shape)
 
     shap.image_plot(
         shap_values=shap_values.values,
