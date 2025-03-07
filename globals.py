@@ -1,0 +1,2 @@
+model = None
+device = None

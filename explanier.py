@@ -4,7 +4,10 @@ import argparse
 import shap
 from PIL import Image
 import numpy as np
+from dotenv import load_dotenv
 from utils import *
+import os
+import globals as gl
 
 
 def load_imagenet_labels():
@@ -13,14 +16,15 @@ def load_imagenet_labels():
 
 
 def predict(x):
+    device = gl.device
     if isinstance(x, np.ndarray):
         x = nhwc_to_nchw(torch.Tensor(x)).to(device)
         with torch.no_grad():
-            outputs = model(x)
+            outputs = gl.model(x)
         return outputs
     with torch.no_grad():
         x = x.to(device)
-        outputs = model(x)
+        outputs = gl.model(x)
     _, predicted = outputs.max(1)
     probabilities = torch.nn.functional.softmax(outputs, dim=1)
     return predicted.item(), probabilities[0]
@@ -29,7 +33,7 @@ def predict(x):
 def load_pretrained_model(model_name="ResNet18"):
     if model_name == "ResNet18":
         model = torchvision.models.resnet18(weights="DEFAULT")
-    elif model_name == "MobileNetV2":
+    elif model_name == "MobileNetV3":
         model = torchvision.models.mobilenet_v2(weights="DEFAULT")
     elif model_name == "VGG16":
         model = torchvision.models.vgg16(weights="DEFAULT")
@@ -37,7 +41,7 @@ def load_pretrained_model(model_name="ResNet18"):
     return model
 
 
-def generate_shap_values(image, input_shape):
+def generate_shap_values(image, input_shape, class_names):
 
     x = preprocess(image, input_shape[:2])
 
@@ -51,9 +55,9 @@ def generate_shap_values(image, input_shape):
 
     shap_values = explainer(
         nchw_to_nhwc(x),
-        max_evals=n_evals,
-        batch_size=batch_size,
-        outputs=shap.Explanation.argsort.flip[:topk],
+        max_evals=gl.n_evals,
+        batch_size=gl.batch_size,
+        outputs=shap.Explanation.argsort.flip[:gl.topk],
     )
 
     shap_values.data = postprocess(shap_values.data).cpu().numpy()
@@ -79,10 +83,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    device = args.device
-    topk = args.topk
-    batch_size = args.batch
-    n_evals = args.nevals
+    gl.device = args.device
+    gl.topk = args.topk
+    gl.batch_size = args.batch
+    gl.n_evals = args.nevals
 
     input_shape = (128, 128, 3)
 
@@ -90,11 +94,11 @@ if __name__ == "__main__":
 
     image = Image.open(args.path).convert("RGB")
 
-    model = load_pretrained_model().to(device)
+    gl.model = load_pretrained_model().to(gl.device)
     x = preprocess(image, input_shape[:2])
     class_idx, _ = predict(x)
 
-    shap_values = generate_shap_values(image, input_shape)
+    shap_values = generate_shap_values(image, input_shape, class_names)
 
     shap.image_plot(
         shap_values=shap_values.values,
