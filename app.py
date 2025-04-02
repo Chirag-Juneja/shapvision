@@ -41,32 +41,13 @@ model_source = st.sidebar.radio(
 
 
 # Function to load a custom PyTorch model
-def load_custom_model(model_file, state_dict=None):
-    try:
-        if state_dict:
-            # If separate state dict is provided
-            model = torch.load(model_file, map_location=torch.device("cpu"))
-            model.load_state_dict(
-                torch.load(state_dict, map_location=torch.device("cpu"))
-            )
-        else:
-            # Load the entire model
-            model = torch.load(model_file, map_location=torch.device("cpu"))
-
-        model.eval()
-        return model, None
-    except Exception as e:
-        return None, f"Error loading model: {str(e)}"
 
 # Main function
 # def main():
 # Model selection/upload logic
 class_names = load_imagenet_labels()
-gl.topk = 5
-gl.batch_size = 512
-gl.n_evals =  10000
 custom_transform = None
-input_shape = (128,128,3) 
+input_shape = (128, 128, 3)
 
 if model_source == "Use Pre-trained Model":
     model_name = st.sidebar.selectbox(
@@ -80,39 +61,15 @@ if model_source == "Use Pre-trained Model":
 else:  # Upload Custom Model
     st.sidebar.markdown("### Upload Your Custom Model")
 
-    # Option to upload the model architecture and weights
-    upload_type = st.sidebar.radio(
-        "Upload type:",
-        ["Complete Model (.pt or .pth)", "Separate Architecture and Weights"],
+    model_file = st.sidebar.file_uploader(
+        "Upload Complete model file (.pt or .pth)", type=["pt", "pth"]
     )
-
-    if upload_type == "Complete Model (.pt or .pth)":
-        model_file = st.sidebar.file_uploader(
-            "Upload model file (.pt or .pth)", type=["pt", "pth"]
-        )
-        if model_file:
-            model_bytes = io.BytesIO(model_file.read())
-            with st.spinner("Loading custom model..."):
-                model, error = load_custom_model(model_bytes)
-                if error:
-                    st.sidebar.error(error)
-    else:
-        model_arch_file = st.sidebar.file_uploader(
-            "Upload model architecture (.pt or .pth)", type=["pt", "pth"]
-        )
-        model_weights_file = st.sidebar.file_uploader(
-            "Upload model weights (.pt or .pth)", type=["pt", "pth"]
-        )
-
-        if model_arch_file and model_weights_file:
-            model_arch_bytes = io.BytesIO(model_arch_file.read())
-            model_weights_bytes = io.BytesIO(model_weights_file.read())
-            with st.spinner("Loading custom model..."):
-                model, error = load_custom_model(
-                    model_arch_bytes, model_weights_bytes
-                )
-                if error:
-                    st.sidebar.error(error)
+    if model_file:
+        model_bytes = io.BytesIO(model_file.read())
+        with st.spinner("Loading custom model..."):
+            gl.model, error = load_custom_model(model_bytes)
+            if error:
+                st.sidebar.error(error)
 
     # Class names for custom model
     st.sidebar.markdown("### Class Names")
@@ -157,15 +114,9 @@ else:  # Upload Custom Model
         mean_b = st.sidebar.slider(
             "Mean (B)", min_value=0.0, max_value=1.0, value=0.406
         )
-        std_r = st.sidebar.slider(
-            "Std (R)", min_value=0.01, max_value=1.0, value=0.229
-        )
-        std_g = st.sidebar.slider(
-            "Std (G)", min_value=0.01, max_value=1.0, value=0.224
-        )
-        std_b = st.sidebar.slider(
-            "Std (B)", min_value=0.01, max_value=1.0, value=0.225
-        )
+        std_r = st.sidebar.slider("Std (R)", min_value=0.01, max_value=1.0, value=0.229)
+        std_g = st.sidebar.slider("Std (G)", min_value=0.01, max_value=1.0, value=0.224)
+        std_b = st.sidebar.slider("Std (B)", min_value=0.01, max_value=1.0, value=0.225)
 
         custom_transform = transforms.Compose(
             [
@@ -232,68 +183,68 @@ if gl.model is not None and uploaded_file is not None:
 
             # # Generate SHAP explanation if user wants it
             if st.button("Explain this prediction with SHAP"):
-                with st.spinner(
-                    "Generating SHAP values (this may take a minute)..."
-                ):
+                with st.spinner("Generating SHAP values (this may take a minute)..."):
                     start_time = time.time()
 
                     # Generate SHAP values for the top predicted class
 
-                    shap_values = generate_shap_values(image, input_shape,class_names)
+                    shap_values = generate_shap_values(image, input_shape, class_names)
                     end_time = time.time()
                     st.info(
                         f"SHAP explanation generated in {end_time - start_time:.2f} seconds"
                     )
 
-            #     # Plot SHAP explanations
+                #     # Plot SHAP explanations
                 st.subheader(f"SHAP Explanation for '{top_class_name}'")
 
-            #     # Create SHAP visualization
+                #     # Create SHAP visualization
                 fig, ax = plt.subplots(figsize=(10, 6))
-            #     shap_img = shap.image_plot(
-            #         shap_values.values[0],
-            #         np.transpose(img_array, (0, 2, 3, 1))[0],
-            #         show=False,
-            #     )
+                #     shap_img = shap.image_plot(
+                #         shap_values.values[0],
+                #         np.transpose(img_array, (0, 2, 3, 1))[0],
+                #         show=False,
+                #     )
                 shap.image_plot(
                     shap_values=shap_values.values,
                     pixel_values=shap_values.data,
                     labels=shap_values.output_names,
-                    true_labels=[class_idx],
-                    show=False
+                    true_labels=[class_names[class_idx]],
+                    show=False,
                 )
                 st.pyplot(plt)
 
-            #     # Explanation of the visualization
-            #     st.markdown(
-            #         """
-            #     ### How to interpret the visualization:
+                #     # Explanation of the visualization
+                st.markdown(
+                    """
+                ### How to interpret the visualization:
                 
-            #     - **Original image** is shown on the left
-            #     - **SHAP values** are shown on the right
-            #     - **Red areas** indicate features that pushed the prediction toward the class
-            #     - **Blue areas** indicate features that pushed the prediction away from the class
-            #     - **Intensity** of the color indicates the strength of the effect
+                - **Original image** is shown on the left
+                - **SHAP values** are shown on the right
+                - **Red areas** indicate features that pushed the prediction toward the class
+                - **Blue areas** indicate features that pushed the prediction away from the class
+                - **Intensity** of the color indicates the strength of the effect
                 
-            #     This helps you understand which parts of the image were most important for the model's decision.
-            #     """
-            #     )
+                This helps you understand which parts of the image were most important for the model's decision.
+                """
+                )
 
         except Exception as e:
-            st.error(f"Error during prediction or explanation: {str(traceback.format_exc())}")
+            st.error(
+                f"Error during prediction or explanation: {str(traceback.format_exc())}"
+            )
             st.info(
                 "This might be due to model compatibility issues. Make sure your custom model can process the image format and size."
             )
 
-# elif gl.model is None and uploaded_file is not None:
-#     st.warning("Please select or upload a model to analyze the image.")
+elif gl.model is None and uploaded_file is not None:
+    st.warning("Please select or upload a model to analyze the image.")
 
-# elif (
-#     uploaded_file is None
-#     and model_source == "Upload Custom Model"
-#     and model is not None
-# ):
-#     st.success("Custom model loaded successfully! Now upload an image to analyze.")
+elif (
+    uploaded_file is None
+    and model_source == "Upload Custom Model"
+    and gl.model is not None
+):
+    st.success("Custom model loaded successfully! Now upload an image to analyze.")
 
 
 # if __name__ == "__main__":
