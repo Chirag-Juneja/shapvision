@@ -1,15 +1,12 @@
 import streamlit as st
-import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import torchvision
 from torchvision import transforms
 from PIL import Image
 import shap
 import time
 import io
 import json
-import cv2
 import traceback
 from dotenv import load_dotenv
 import os
@@ -19,12 +16,10 @@ from explanier import *
 load_dotenv()
 device = os.getenv("DEVICE")
 
-# Set page configuration
 st.set_page_config(
     page_title="Image Classification Explainer", page_icon="🔍", layout="wide"
 )
 
-# App title and description
 st.title("Image Classification Explainer")
 st.markdown(
     """
@@ -33,18 +28,12 @@ You can either use a pre-trained model or upload your own custom PyTorch model.
 """
 )
 
-# Sidebar for model settings
 st.sidebar.header("Model Settings")
 model_source = st.sidebar.radio(
     "Model Source:", ["Use Pre-trained Model", "Upload Custom Model"]
 )
 
 
-# Function to load a custom PyTorch model
-
-# Main function
-# def main():
-# Model selection/upload logic
 class_names = load_imagenet_labels()
 custom_transform = None
 input_shape = (128, 128, 3)
@@ -54,11 +43,10 @@ if model_source == "Use Pre-trained Model":
         "Select a pre-trained model:", ["ResNet18", "MobileNetV2", "VGG16"]
     )
 
-    # Load the selected model
     with st.spinner("Loading pre-trained model..."):
         gl.model = load_pretrained_model(model_name)
 
-else:  # Upload Custom Model
+else:  
     st.sidebar.markdown("### Upload Your Custom Model")
 
     model_file = st.sidebar.file_uploader(
@@ -71,7 +59,6 @@ else:  # Upload Custom Model
             if error:
                 st.sidebar.error(error)
 
-    # Class names for custom model
     st.sidebar.markdown("### Class Names")
     class_names_option = st.sidebar.radio(
         "Class names:",
@@ -97,7 +84,6 @@ else:  # Upload Custom Model
             ]
             st.sidebar.success(f"Loaded {len(class_names)} class names")
 
-    # Custom preprocessing
     st.sidebar.markdown("### Custom Preprocessing")
     use_custom_preproc = st.sidebar.checkbox("Use custom preprocessing parameters")
 
@@ -135,34 +121,25 @@ else:  # Upload Custom Model
 st.header("Upload an Image")
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-# Check if we have both a model and an image
 if gl.model is not None and uploaded_file is not None:
-    # Display the uploaded image
     image = Image.open(uploaded_file).convert("RGB")
     col1, col2 = st.columns(2)
 
     with col1:
         st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    # Preprocess the image
 
-    # Make prediction
     with st.spinner("Making prediction..."):
         try:
-            # class_idx, probabilities = predict(model, img_tensor)
-
-            # Convert tensor to numpy array for visualization
             gl.model = gl.model.to(gl.device)
             x = preprocess(image, input_shape[:2])
             class_idx, probabilities = predict(x)
 
-            # Display prediction results
             with col2:
                 st.subheader("Prediction Results")
                 top_k = min(5, len(probabilities))
                 top_probs, top_classes = torch.topk(probabilities, top_k)
 
-                # Display top predictions
                 for i, (prob, class_id) in enumerate(zip(top_probs, top_classes)):
                     class_name = (
                         class_names[class_id]
@@ -171,7 +148,6 @@ if gl.model is not None and uploaded_file is not None:
                     )
                     st.write(f"{i+1}. {class_name}: {prob.item()*100:.2f}%")
 
-                # Highlight top prediction
                 top_class_name = (
                     class_names[top_classes[0]]
                     if top_classes[0] < len(class_names)
@@ -181,12 +157,10 @@ if gl.model is not None and uploaded_file is not None:
                     f"Top prediction: **{top_class_name}** with {top_probs[0].item()*100:.2f}% confidence"
                 )
 
-            # # Generate SHAP explanation if user wants it
             if st.button("Explain this prediction with SHAP"):
                 with st.spinner("Generating SHAP values (this may take a minute)..."):
                     start_time = time.time()
 
-                    # Generate SHAP values for the top predicted class
 
                     shap_values = generate_shap_values(image, input_shape, class_names)
                     end_time = time.time()
@@ -194,16 +168,9 @@ if gl.model is not None and uploaded_file is not None:
                         f"SHAP explanation generated in {end_time - start_time:.2f} seconds"
                     )
 
-                #     # Plot SHAP explanations
                 st.subheader(f"SHAP Explanation for '{top_class_name}'")
 
-                #     # Create SHAP visualization
                 fig, ax = plt.subplots(figsize=(10, 6))
-                #     shap_img = shap.image_plot(
-                #         shap_values.values[0],
-                #         np.transpose(img_array, (0, 2, 3, 1))[0],
-                #         show=False,
-                #     )
                 shap.image_plot(
                     shap_values=shap_values.values,
                     pixel_values=shap_values.data,
@@ -213,7 +180,6 @@ if gl.model is not None and uploaded_file is not None:
                 )
                 st.pyplot(plt)
 
-                #     # Explanation of the visualization
                 st.markdown(
                     """
                 ### How to interpret the visualization:
@@ -245,7 +211,3 @@ elif (
     and gl.model is not None
 ):
     st.success("Custom model loaded successfully! Now upload an image to analyze.")
-
-
-# if __name__ == "__main__":
-#     main()

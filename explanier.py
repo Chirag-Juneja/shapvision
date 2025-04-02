@@ -4,9 +4,7 @@ import argparse
 import shap
 from PIL import Image
 import numpy as np
-from dotenv import load_dotenv
 from utils import *
-import os
 import globals as gl
 
 
@@ -32,7 +30,7 @@ def predict(x):
 
 def load_custom_model(model_file, state_dict=None):
     try:
-        model = torch.load(model_file, map_location=torch.device("cpu"))
+        model = torch.load(model_file,weights_only=False, map_location=torch.device('cpu'))
         model.eval()
         return model, None
     except Exception as e:
