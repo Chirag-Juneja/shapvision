@@ -64,7 +64,7 @@ streamlit run app.py
 
 Below is an example of the ShapVision app in action:
 
-![ShapVision App Screenshot](./assets/screenshot.png)
+![ShapVision App Screenshot](./assets/app_screenshot.png)
 
 ## License
 
